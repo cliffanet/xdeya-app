@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'titlebar.dart';
+import 'core.dart';
 
 void main() {
     runApp(MaterialApp(
@@ -12,7 +13,10 @@ class XdeYaApp extends StatelessWidget {
     @override
     Widget build(BuildContext context) {
         return Scaffold(
-            appBar: TitleBar(),
+            appBar: PreferredSize(
+                preferredSize: const Size(double.infinity, kToolbarHeight), // here the desired height
+                child: TitleBar()
+            ),
             /*
             AppBar(
                 leading: const IconButton(
@@ -31,9 +35,23 @@ class XdeYaApp extends StatelessWidget {
             ),
             */
             // body - это большая часть экрана.
-            body: const Center(
-                child: Text('Hello, world!'),
-            ),
+            body: Column(
+                    children: <Widget>[
+                        Text('Hello, world!'),
+                        OutlinedButton(
+                            child: Text("Inc"),
+                            onPressed: () {
+                                app.progval ++;
+                            }
+                        ),
+                        OutlinedButton(
+                            child: Text("Max"),
+                            onPressed: () {
+                                app.progmax ++;
+                            }
+                        ),
+                    ]
+                ),
         );
     }
 }
