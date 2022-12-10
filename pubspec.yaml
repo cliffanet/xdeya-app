@@ -38,6 +38,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   webview_flutter: ^3.0.4
   loading_animation_widget: ^1.2.0+3
+  udp: ^5.0.3
 
 dev_dependencies:
   flutter_test:

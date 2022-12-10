@@ -1,46 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'core.dart';
+import 'pager.dart';
+import 'net/wifidiscovery.dart';
 
-class TitleBar extends StatefulWidget {
-
-  TitleBar({super.key});
-
-  @override
-  _TitleBarState createState() => _TitleBarState();
+Widget getTitleBarDiscovery() {
+    return ValueListenableBuilder(
+        valueListenable: wifi.notifyActive,
+        builder: (BuildContext context, isActive, Widget? child) {
+            return AppBar(
+                title: isActive ? Row(
+                    children: [
+                        LoadingAnimationWidget.horizontalRotatingDots(
+                            color: Colors.white,
+                            size: 20,
+                        ),
+                        const Expanded(child: Text('Поиск устройств', textAlign: TextAlign.center))
+                    ]
+                ) : null,
+                actions: <Widget>[
+                    IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Обновить',
+                        onPressed: isActive ? null : wifi.search
+                    ),
+                ],
+            );
+        },
+    );
 }
 
-
-class _TitleBarState extends State<TitleBar> {
-    _TitleBarState() : super() {
-        app.reloadTitleBar = () => { setState(() => {}) };
-    }
-
-    @override
-    Widget build(BuildContext context) {
-        List<Widget> row = [
-            const Expanded(child: Text('Xde-Ya', textAlign: TextAlign.center))
-        ];
+Widget getTitleBarClient(PageCode page) {
+    /*
+        List<Widget> row = [];
 
         if ((app.progmax > 0) && (app.progval >= 0) && (app.progval <= app.progmax)) {
-            row.insert(0,
+            row.add(
                 SizedBox(
                     width: 150,
                     child: LinearProgressIndicator(
                             value: app.progval / app.progmax,
                             minHeight: 10,
-                            color: Colors.green,
+                            color: Colors.black54,
                     )
                 )
             );
         }
-        else
-        if (app.progval != 0) {
-            row.insert(0,
-                LoadingAnimationWidget.horizontalRotatingDots(
-                    color: Colors.white,
-                    size: 20,
-                )
+        else {
+            bool load = wifi.isActive;
+            if (load) {
+                row.add(
+                    LoadingAnimationWidget.horizontalRotatingDots(
+                        color: Colors.white,
+                        size: 20,
+                    )
+                );
+            }
+        }
+
+        final String txt =
+            wifi.isActive ?
+                'Поиск WiFi' :
+                '';
+        if (!txt.isEmpty) {
+            row.add(
+                Expanded(child: Text(txt, textAlign: TextAlign.center))
             );
         }
 
@@ -53,21 +76,15 @@ class _TitleBarState extends State<TitleBar> {
                 ),
             );
         }
-
-        return AppBar(
-            leading: const IconButton(
-                icon: Icon(Icons.arrow_back),
-                tooltip: 'Назад',
-                onPressed: null,
+        */
+    return AppBar(
+        title: null,
+        actions: <Widget>[
+            IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Обновить',
+                onPressed: null
             ),
-            title: Row(children: row),
-            actions: const <Widget>[
-                IconButton(
-                    icon: Icon(Icons.refresh),
-                    tooltip: 'Обновить',
-                    onPressed: null,
-                ),
-            ],
-        );
-    }
+        ],
+    );
 }
