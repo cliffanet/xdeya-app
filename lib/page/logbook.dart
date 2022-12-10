@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-class PageLogBook extends StatefulWidget {
-
-  PageLogBook({super.key});
-
-  @override
-  _PageLogBookState createState() => _PageLogBookState();
-}
-
-
-class _PageLogBookState extends State<PageLogBook> {
-    //PageLogBook() : super() {
-    //    wifi.redraw = () => setState(() => {});
-    //}
+class PageLogBook extends StatelessWidget {
+    const PageLogBook({ super.key });
     
     @override
     Widget build(BuildContext context) {
-        return Center(
-            child: const Text('Logbook')
+        switch (Theme.of(context).platform) {
+            case TargetPlatform.android:
+            case TargetPlatform.iOS:
+                return const WebView(
+                    javascriptMode: JavascriptMode.unrestricted,
+                    initialUrl: "https://maps.yandex.ru"
+                );
+            default:
+        }
+
+        return const Center(
+            child: Text('Logbook')
         );
     }
 }

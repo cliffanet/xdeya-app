@@ -4,6 +4,8 @@ import '../pager.dart';
 import 'dart:developer' as developer;
 
 class PageDiscovery extends StatelessWidget {
+    const PageDiscovery({ super.key });
+
     @override
     Widget build(BuildContext context) {
         return ValueListenableBuilder(

@@ -1,6 +1,10 @@
 name: xdeya
 description: Xde-Ya altimeter GUI.
 
+#### RUN:
+#     flutter pub get
+#     flutter pub run flutter_launcher_icons
+
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -39,6 +43,7 @@ dependencies:
   webview_flutter: ^3.0.4
   loading_animation_widget: ^1.2.0+3
   udp: ^5.0.3
+  flutter_launcher_icons: ^0.11.0
 
 dev_dependencies:
   flutter_test:
@@ -92,3 +97,16 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+# for regenerate icon:
+##   flutter pub run flutter_launcher_icons:main
+flutter_icons:
+  android: true
+  ios: true
+  macos:
+    generate: true
+  windows:
+    generate: true
+  image_path: "icon/xdeya.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  #remove_alpha_ios: true
