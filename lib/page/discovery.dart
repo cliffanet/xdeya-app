@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../net/wifidiscovery.dart';
+import '../net/proc.dart';
 import '../pager.dart';
 import 'dart:developer' as developer;
 
@@ -28,6 +29,7 @@ class PageDiscovery extends StatelessWidget {
                             child: ListTile(
                                 onTap: () {
                                     developer.log('tap on: $index');
+                                    net.start(w.ip, w.port);
                                     Pager.push(context, PageCode.logbook);
                                 },
                                 trailing: const SizedBox.shrink(),
