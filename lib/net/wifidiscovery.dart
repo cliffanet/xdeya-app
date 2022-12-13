@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+//import 'dart:typed_data';
 import 'dart:io';
 import 'package:udp/udp.dart';
 import 'dart:developer' as developer;
@@ -21,7 +21,7 @@ class WiFiDevice {
 }
 
 class WiFiDiscovery {
-    ValueNotifier<bool> _active = ValueNotifier(false);
+    final ValueNotifier<bool> _active = ValueNotifier(false);
     bool get isActive => _active.value;
     ValueNotifier<bool> get notifyActive => _active;
 
@@ -57,15 +57,15 @@ class WiFiDiscovery {
         // по окончанию поиска
         List<WiFiDevice> newdevice = [];
 
-        rcv.asStream().listen((pkt) {
-            if ((pkt == null) || (pkt.data.length <= 2)) {
+        rcv.asStream().listen((e) {
+            if ((e == null) || (e.data.length <= 2)) {
                 return;
             }
 
-            final int port = pkt.data.buffer.asByteData().getUint16(0, Endian.big);
-            final name = String.fromCharCodes(pkt.data.sublist(2));
-            final w = WiFiDevice(name: name, ip: pkt.address, port: port);
-            developer.log('recv: $name (${pkt.address}:$port)');
+            final int port = e.data.buffer.asByteData().getUint16(0, Endian.big);
+            final name = String.fromCharCodes(e.data.sublist(2));
+            final w = WiFiDevice(name: name, ip: e.address, port: port);
+            developer.log('recv: $name (${e.address}:$port)');
 
             // временный back-список
             bool found = false;

@@ -1,21 +1,38 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:developer' as developer;
 
+import 'binproto.dart';
+
 enum NetState {
     offline,
-    disconnected,
     connecting,
-    connected
+    connected,
+    waitauth,
+    online
+}
+
+enum NetError {
+    connect,
+    disconnected,
+    proto,
+    cmddup,
+    auth
 }
 
 final net = NetProc();
 
 class NetProc {
     Socket ?_sock;
-    NetState _state = NetState.offline;
+    final ValueNotifier<NetState> _state = ValueNotifier(NetState.offline);
+    final ValueNotifier<NetError?> _err = ValueNotifier(null);
 
-    bool get isActive => (_state != NetState.offline) && (_state != NetState.disconnected);
+    bool get isActive => (_state.value != NetState.offline);
+
+    NetState get state => _state.value;
+    ValueNotifier<NetState> get notifyState => _state;
+    NetError? get error => _err.value;
+    ValueNotifier<NetError?> get notifyError => _err;
 
     void stop() {
         _sock?.close();
@@ -26,32 +43,112 @@ class NetProc {
         await Future.doWhile(() => isActive);
 
         developer.log('net connecting to: $ip:$port');
-        _state = NetState.connecting;
+        _state.value = NetState.connecting;
+        _err.value = null;
 
         try {
             _sock = await Socket.connect(ip, port);
         }
         catch (err) {
             _sock = null;
-            _state = NetState.offline;
+            _state.value = NetState.offline;
+            _err.value = NetError.connect;
             return false;
         }
 
         _sock?.listen(
             recv,
             onDone: () {
-                _state = NetState.disconnected;
+                _state.value = NetState.offline;
                 _sock!.close();
                 _sock = null;
+                _pro.rcvClear();
+                _reciever.clear();
+                _err.value ??= NetError.disconnected;
             }
         );
         developer.log('net connected');
 
-        _state = NetState.connected;
+        _state.value = NetState.connected;
+
+        // запрос hello
+        if (!recieverAdd(0x02, () {
+                recieverDel(0x02);
+                _pro.rcvNext();
+                _state.value = NetState.waitauth;
+            }))
+        {
+            _err.value = NetError.cmddup;
+            stop();
+            return false;
+        }
+
+        if (!send(0x02)) {
+            return false;
+        }
+
         return true;
     }
 
+    final BinProto _pro = BinProto();
     void recv(data) {
-        developer.log('packet: ' + data.toString());
+        if (!_pro.rcvProcess(data)) {
+            _err.value = NetError.proto;
+            stop();
+            return;
+        }
+
+        while (_pro.rcvState == BinProtoRecv.complete) {
+            Function() ?hnd = _reciever[ _pro.rcvCmd ];
+
+            if (hnd != null) {
+                hnd();
+            }
+
+            if (!_pro.rcvProcess()) {
+                _err.value = NetError.proto;
+                stop();
+                return;
+            }
+        }
+    }
+
+    bool send(int cmd, [String? pk, List<dynamic>? vars]) {
+        if (_sock == null) {
+            _err.value = NetError.disconnected;
+            return false;
+        }
+        
+        var data = _pro.pack(cmd, pk, vars);
+        _sock?.add(data);
+        developer.log('send cmd=$cmd, size=${ data.length }');
+
+        return true;
+    }
+
+    final Map<int, void Function()> _reciever = {};
+
+    bool recieverAdd(int cmd, void Function() hnd) {
+        if (_reciever[cmd] != null) {
+            return false;
+        }
+
+        _reciever[cmd] = hnd;
+
+        return true;
+    }
+    
+    bool recieverDel(int cmd) {
+        if (_reciever[cmd] == null) {
+            return false;
+        }
+
+        _reciever.remove(cmd);
+
+        return true;
+    }
+
+    void Function()? reciever(int cmd) {
+        return _reciever[cmd];
     }
 }
