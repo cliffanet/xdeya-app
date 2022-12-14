@@ -40,7 +40,7 @@ class NetProc {
 
     Future<bool> start(InternetAddress ip, int port) async {
         _sock?.close();
-        await Future.doWhile(() => isActive);
+        //await Future.doWhile(() => isActive);
 
         developer.log('net connecting to: $ip:$port');
         _state.value = NetState.connecting;
@@ -76,6 +76,7 @@ class NetProc {
                 recieverDel(0x02);
                 _pro.rcvNext();
                 _state.value = NetState.waitauth;
+                developer.log('rcv hello');
             }))
         {
             _err.value = NetError.cmddup;
@@ -103,6 +104,10 @@ class NetProc {
 
             if (hnd != null) {
                 hnd();
+            }
+            else {
+                developer.log('recv unknown: cmd=0x${_pro.rcvCmd.toRadixString(16)}');
+                _pro.rcvNext();
             }
 
             if (!_pro.rcvProcess()) {
@@ -150,5 +155,27 @@ class NetProc {
 
     void Function()? reciever(int cmd) {
         return _reciever[cmd];
+    }
+
+    bool requestAuth(String codehex) {
+        int code = int.parse(codehex, radix: 16);
+        if (code == 0) {
+            return false;
+        }
+
+        bool ok = recieverAdd(0x03, () {
+                recieverDel(0x03);
+                List<dynamic> ?v = _pro.rcvData('C');
+                if ((v == null) || v.isEmpty || (v[0] > 0)) {
+                    _err.value = NetError.auth;
+                    stop();
+                    return;
+                }
+                developer.log('auth ok');
+                _state.value = NetState.online;
+            });
+        if (!ok) return false;
+
+        return send(0x03, 'n', [code]);
     }
 }

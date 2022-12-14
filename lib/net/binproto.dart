@@ -7,7 +7,7 @@ class BinProto {
     static const hdrsz = 4;
     final int mgcsnd;
     final int mgcrcv;
-    final Uint8List _rcv = Uint8List(0);
+    final List<int> _rcvBuf = [];
     BinProtoRecv _rsvstate = BinProtoRecv.waitcmd;
     int _rcvcmd = 0;
     int _rcvsz = 0;
@@ -27,17 +27,17 @@ class BinProto {
 
     bool rcvProcess([Uint8List ?data]) {
         if (data != null) {
-            _rcv.addAll(data);
+            _rcvBuf.addAll(data);
         }
 
         if (_rsvstate == BinProtoRecv.clear) {
             // очистка текущей команды
             int sz = _rcvsz;
-            if (sz > _rcv.length) {
-                sz = _rcv.length;
+            if (sz > _rcvBuf.length) {
+                sz = _rcvBuf.length;
             }
             if (sz > 0) {
-                _rcv.removeRange(0, sz);
+                _rcvBuf.removeRange(0, sz);
                 _rcvsz -= sz;
             }
             if (_rcvsz > 0) {
@@ -49,24 +49,26 @@ class BinProto {
         }
 
         if (_rsvstate == BinProtoRecv.waitcmd) {
-            if (_rcv.length < hdrsz) {
+            if (_rcvBuf.length < hdrsz) {
                 return true;
             }
 
             // hdrunpack
-            if ((_rcv[0] != mgcrcv) || (_rcv[1] == 0)) {
+            if ((_rcvBuf[0] != mgcrcv) || (_rcvBuf[1] == 0)) {
                 return false;
             }
-            _rcvcmd = _rcv[1];
-            _rcvsz = _rcv.buffer.asByteData(2, 2).getUint16(0, Endian.big);
-            _rcv.removeRange(0, 4);
+            _rcvcmd = _rcvBuf[1];
+            ByteData bsz = ByteData(2);
+            bsz.buffer.asUint8List().setAll(0, _rcvBuf.getRange(2, 4));
+            _rcvsz = bsz.getUint16(0, Endian.big);
+            _rcvBuf.removeRange(0, 4);
 
 
             _rsvstate = BinProtoRecv.data;
         }
 
         if (_rsvstate == BinProtoRecv.data) {
-            if (_rcv.length < _rcvsz) {
+            if (_rcvBuf.length < _rcvsz) {
                 return true;
             }
 
@@ -92,12 +94,14 @@ class BinProto {
                 return null;
             }
         int sz = _rcvsz;
-        if (sz > _rcv.length) {
-            sz = _rcv.length;
+        if (sz > _rcvBuf.length) {
+            sz = _rcvBuf.length;
         }
 
-        Uint8List data = _rcv.sublist(0, sz);
-        _rcv.removeRange(0, sz);
+
+        Uint8List data = Uint8List(sz);
+        data.setAll(0, _rcvBuf.sublist(0, sz));
+        _rcvBuf.removeRange(0, sz);
         _rcvsz -= sz;
 
         _rsvstate =
@@ -222,7 +226,7 @@ class BinProto {
     }
 
     static Uint8List packData(String pk, List<dynamic> vars) {
-        Uint8List data = Uint8List.fromList([]);
+        List<int> data = [];
 
         int pi = 0;
         int vi = 0;
@@ -373,24 +377,21 @@ class BinProto {
             pi++;
         }
 
-        return data;
+        return Uint8List.fromList(data);
     }
 
     Uint8List pack(int cmd, [String? pk, List<dynamic>? vars]) {
-        Uint8List data = Uint8List(hdrsz);
-
-        data[0] = mgcsnd;
-        data[1] = cmd;
+        List<int> data = [mgcsnd, cmd, 0, 0];
 
         if ((pk != null) && (vars != null)) {
             data.addAll(packData(pk, vars));
+
+            int sz = data.length - hdrsz;
+            ByteData d = ByteData(2);
+            d.setUint16(0, sz, Endian.big);
+            data.setAll(2, d.buffer.asUint8List());
         }
 
-        int sz = data.length - hdrsz;
-        ByteData d = ByteData(2);
-        d.setUint16(0, sz, Endian.big);
-        data.setAll(2, d.buffer.asInt8List());
-
-        return data;
+        return Uint8List.fromList(data);
     }
 }
