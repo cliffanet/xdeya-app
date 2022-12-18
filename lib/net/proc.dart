@@ -216,7 +216,7 @@ class NetProc {
     final List<LogBook> _logbook = [];
     List<LogBook> get logbook => _logbook;
 
-    bool requestLogBook({ int beg = 50, int count = 50, Function() ?onReply }) {
+    bool requestLogBook({ int beg = 50, int count = 50, Function() ?onLoad }) {
         if (_rcvelm.contains(NetRecvElem.logbook)) {
             return false;
         }
@@ -228,7 +228,6 @@ class NetProc {
                 }
 
                 developer.log('logbook beg ${v[0]}, ${v[1]}');
-                _rcvelm.add(NetRecvElem.logbook);
                 _datamax = v[0] < v[1] ? v[0] : v[1];
                 _logbook.clear();
                 _logbooksz.value = 0;
@@ -254,11 +253,74 @@ class NetProc {
                     _datamax = 0;
                     _datacnt = 0;
                     _infNotify();
+                    if (onLoad != null) onLoad();
                 });
             });
         if (!ok) return false;
+        if (!send(0x31, 'NN', [beg, count])) {
+            recieverDel(0x31);
+            return false;
+        }
+        _rcvelm.add(NetRecvElem.logbook);
         _infNotify();
 
-        return send(0x31, 'NN', [beg, count]);
+        return true;
+    }
+
+    bool requestLogBookDefault() {
+        return requestLogBook(
+            onLoad: () => requestTrkList()
+        );
+    }
+
+    final ValueNotifier<int> _trklistsz = ValueNotifier(0);
+    ValueNotifier<int> get notifyTrkList => _trklistsz;
+    final List<TrkInfo> _trklist = [];
+    List<TrkInfo> get trklist => _trklist;
+    List<TrkInfo> trkListByJmp(LogBook jmp) {
+        return _trklist.where((trk) => trk.jmpnum == jmp.num).toList();
+    }
+
+    bool requestTrkList({ Function() ?onLoad }) {
+        if (_rcvelm.contains(NetRecvElem.tracklist)) {
+            return false;
+        }
+        bool ok = recieverAdd(0x51, () {
+                recieverDel(0x51);
+                _pro.rcvNext();
+
+                developer.log('trklist beg');
+                _trklist.clear();
+                _trklistsz.value = 0;
+                _infNotify();
+
+                recieverAdd(0x52, () {
+                    List<dynamic> ?v = _pro.rcvData('NNNNTNC');
+                    if ((v == null) || v.isEmpty) {
+                        return;
+                    }
+                    _trklist.add(TrkInfo.byvars(v));
+                    _trklistsz.value = _trklist.length;
+                    _infNotify();
+                });
+                recieverAdd(0x53, () {
+                    recieverDel(0x52);
+                    recieverDel(0x53);
+                    developer.log('trklist end');
+                    _pro.rcvNext();
+                    _rcvelm.remove(NetRecvElem.tracklist);
+                    _infNotify();
+                    if (onLoad != null) onLoad();
+                });
+            });
+        if (!ok) return false;
+        if (!send(0x51)) {
+            recieverDel(0x51);
+            return false;
+        }
+        _rcvelm.add(NetRecvElem.tracklist);
+        _infNotify();
+
+        return true;
     }
 }

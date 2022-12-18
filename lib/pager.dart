@@ -66,7 +66,7 @@ class Pager extends StatelessWidget {
 
         switch (_stack.last) {
             case PageCode.logbook:
-                return () { net.requestLogBook(); };
+                return () { net.requestLogBookDefault(); };
 
             default:
         }

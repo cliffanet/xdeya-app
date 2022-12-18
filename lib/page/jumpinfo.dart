@@ -7,8 +7,8 @@ import '../net/proc.dart';
 class _LWitem {
     final String name;
     final String val;
-    final int itrk;
-    _LWitem({ required this.name, required this.val, this.itrk=-1 });
+    final TrkInfo ?trk;
+    _LWitem({ required this.name, required this.val, this.trk });
 }
 
 class PageJumpInfo extends StatelessWidget {
@@ -58,6 +58,11 @@ class PageJumpInfo extends StatelessWidget {
                     )
                 ];
                 final ibeg = lw.length;
+
+                List<TrkInfo> trklist = net.trkListByJmp(jmp);
+                for (TrkInfo trk in trklist) {
+                    lw.add(_LWitem(name: '', val: '', trk: trk));
+                }
                 
                 return ListView.separated(
                     itemCount: lw.length+1,
@@ -107,7 +112,7 @@ class PageJumpInfo extends StatelessWidget {
                         }
                         final li = lw[index-1];
                         return Card(
-                            child: li.itrk < 0 ?
+                            child: li.trk == null ?
                                 Row(
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
@@ -141,7 +146,7 @@ class PageJumpInfo extends StatelessWidget {
                                         //Pager.push(context, PageCode.jumpinfo);
                                     },
                                     trailing: const SizedBox.shrink(),
-                                    title: Text('трэк: ${li.itrk}'),
+                                    title: Text('трэк: ${li.trk?.dtBeg}'),
                                 )
                         );
                     },

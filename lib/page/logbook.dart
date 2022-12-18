@@ -27,7 +27,7 @@ Widget _pageAuth() {
                                 }
                                 net.requestAuth(
                                     v,
-                                    onReplyOk: () => net.requestLogBook()
+                                    onReplyOk: () => net.requestLogBookDefault()
                                 );
                             },
                             decoration: const InputDecoration(
