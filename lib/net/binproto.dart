@@ -130,6 +130,28 @@ class BinProto {
         return rcvProcess();
     }
 
+    static List<int> _pklen(String pk, [int start = 0]) {
+        int i = start;
+        int sz = 0;
+        int len = 0;
+        
+        while (
+                (i < pk.length) &&
+                (pk.codeUnitAt(i) >= '0'.codeUnitAt(0)) &&
+                (pk.codeUnitAt(i) <= '9'.codeUnitAt(0))
+            ) {
+            len ++;
+            sz = sz*10 + (pk.codeUnitAt(i)-'0'.codeUnitAt(0));
+            i++;
+        }
+
+        if (len == 0) {
+            return [1, 0];
+        }
+
+        return [sz, len];
+    }
+
     static List<dynamic> unpackData(String pk, Uint8List data) {
         List<dynamic> vars = [];
         ByteData bdata = data.buffer.asByteData();
@@ -216,6 +238,26 @@ class BinProto {
                         )
                     );
                     di += 8;
+                    break;
+                
+                case 'a':
+                    var v = _pklen(pk, pi+1);
+                    int len = v[0];
+                    if (v[1] > 0) {
+                        pi += v[1];
+                        final int len1 = data.length - di;
+                        if (len > len1) len = len1;
+                        for (int i = 0; i < len; i++) {
+                            if (bdata.getUint8(di+i) == 0) {
+                                len = i;
+                                break;
+                            }
+                        }
+                    }
+                    vars.add(
+                        String.fromCharCodes(data, di, di+len)
+                    );
+                    di += v[0];
                     break;
             }
 
@@ -369,6 +411,16 @@ class BinProto {
                     }
                     data.addAll( d.buffer.asInt8List() );
                     break;
+                
+                case 'a':
+                    var v = _pklen(pk, pi+1);
+                    pi += v[1];
+                    int len = v[0];
+                    final String s = v is String ? v.toString() : '';
+                    List<int> d = s.substring(0, len).codeUnits;
+                    while (d.length < len) d.add(0);
+                    data.addAll( d );
+                    break;
             }
 
             if (pk[pi] != ' ') {
@@ -394,4 +446,31 @@ class BinProto {
 
         return Uint8List.fromList(data);
     }
+}
+
+
+typedef Struct = Map<String, dynamic>;
+
+Struct fldUnpack(List<String> fld, List<dynamic> vars, [ int start = 0 ]) {
+    int ifld = 0;
+    int ivar = start;
+    Map<String, dynamic> m = {};
+
+    while ((ifld < fld.length) && (ivar < vars.length)) {
+        m[ fld[ifld] ] = vars[ ivar ];
+        ifld++;
+        ivar++;
+    }
+
+    return m;
+}
+
+List<dynamic> fldPack(List<String> fld, Struct vars) {
+    List<dynamic> list = [];
+
+    for (var e in fld) {
+        list.add( vars[e] );
+    }
+
+    return list;
 }

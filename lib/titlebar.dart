@@ -32,8 +32,8 @@ Widget getTitleBarDiscovery() {
 
 Widget getTitleBarClient(PageCode page) {
     return ValueListenableBuilder(
-        valueListenable: net.notifyState,
-        builder: (BuildContext context, state, Widget? child) {
+        valueListenable: net.notifyInf,
+        builder: (BuildContext context, inf, Widget? child) {
             List<Widget> row = [];
 
             if (net.error != null) {
@@ -139,7 +139,7 @@ Widget getTitleBarClient(PageCode page) {
                     IconButton(
                         icon: const Icon(Icons.refresh),
                         tooltip: 'Обновить',
-                        onPressed: null
+                        onPressed: Pager.refresh
                     ),
                 ],
             );
