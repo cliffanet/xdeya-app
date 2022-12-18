@@ -36,6 +36,28 @@ Widget getTitleBarClient(PageCode page) {
         builder: (BuildContext context, inf, Widget? child) {
             List<Widget> row = [];
 
+            if (net.isProgress) {
+                row.add(
+                    SizedBox(
+                        width: 150,
+                        child: LinearProgressIndicator(
+                                value: net.dataProgress,
+                                minHeight: 10,
+                                color: Colors.black54,
+                        )
+                    )
+                );
+            }
+            else
+            if (net.isLoading) {
+                row.add(
+                    LoadingAnimationWidget.horizontalRotatingDots(
+                        color: Colors.white,
+                        size: 20,
+                    )
+                );
+            }
+
             if (net.error != null) {
                 String txt;
                 switch (net.error) {
@@ -99,30 +121,6 @@ Widget getTitleBarClient(PageCode page) {
             }
             
             /*
-                if ((app.progmax > 0) && (app.progval >= 0) && (app.progval <= app.progmax)) {
-                    row.add(
-                        SizedBox(
-                            width: 150,
-                            child: LinearProgressIndicator(
-                                    value: app.progval / app.progmax,
-                                    minHeight: 10,
-                                    color: Colors.black54,
-                            )
-                        )
-                    );
-                }
-                else {
-                    bool load = wifi.isActive;
-                    if (load) {
-                        row.add(
-                            LoadingAnimationWidget.horizontalRotatingDots(
-                                color: Colors.white,
-                                size: 20,
-                            )
-                        );
-                    }
-                }
-
                 if (false) {
                     row.insert(0,
                         const IconButton(

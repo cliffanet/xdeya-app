@@ -28,39 +28,36 @@ enum NetRecvElem {
     wifipass
 }
 
-class NetProcState {
-    NetState state = NetState.offline;
-    NetError? error;
-    Set<NetRecvElem> rcvElem = {};
-    int dataCount = 0;
-    int dataMax = 0;
-}
-
 final net = NetProc();
 
 class NetProc {
     Socket ?_sock;
-    final ValueNotifier<NetProcState> _inf = ValueNotifier(NetProcState());
 
-    bool get isActive => (_inf.value.state != NetState.offline);
+    NetState _state = NetState.offline;
+    NetState get state => _state;
+    bool get isActive => (_state != NetState.offline);
 
-    ValueNotifier<NetProcState> get notifyInf => _inf;
-    NetState get state => _inf.value.state;
-    NetError? get error => _inf.value.error;
-    Set<NetRecvElem> get rcvElem => _inf.value.rcvElem;
-    double get dataProgress => 
-            _inf.value.dataCount > _inf.value.dataMax ?
-                1.0 :
-                _inf.value.dataCount / _inf.value.dataMax;
+    NetError? _err;
+    NetError? get error => _err;
 
-    void _infNotify() => _inf.notifyListeners();
+    final Set<NetRecvElem> _rcvelm = {};
+    Set<NetRecvElem> get rcvElem => _rcvelm;
+
+    int _datacnt = 0;
+    int _datamax = 0;
+    double get dataProgress => _datacnt > _datamax ? 1.0 : _datacnt / _datamax;
+    bool get isProgress => _datamax > 0;
+
+    final ValueNotifier<int> _notify = ValueNotifier(0);
+    ValueNotifier<int> get notifyInf => _notify;
+    void _infNotify() => _notify.value++;
 
     void stop() {
         _sock?.close();
     }
 
     void _errstop(NetError ?err) {
-        _inf.value.error = err;
+        _err = err;
         _infNotify();
         stop();
     }
@@ -70,8 +67,8 @@ class NetProc {
         //await Future.doWhile(() => isActive);
 
         developer.log('net connecting to: $ip:$port');
-        _inf.value.state = NetState.connecting;
-        _inf.value.error = null;
+        _state = NetState.connecting;
+        _err = null;
         _infNotify();
 
         try {
@@ -79,8 +76,8 @@ class NetProc {
         }
         catch (err) {
             _sock = null;
-            _inf.value.state = NetState.offline;
-            _inf.value.error = NetError.connect;
+            _state = NetState.offline;
+            _err = NetError.connect;
             _infNotify();
             return false;
         }
@@ -88,25 +85,25 @@ class NetProc {
         _sock?.listen(
             recv,
             onDone: () {
-                _inf.value.state = NetState.offline;
+                _state = NetState.offline;
                 _sock!.close();
                 _sock = null;
                 _pro.rcvClear();
                 _reciever.clear();
-                _inf.value.error ??= NetError.disconnected;
+                _err ??= NetError.disconnected;
                 _infNotify();
             }
         );
         developer.log('net connected');
 
-        _inf.value.state = NetState.connected;
+        _state = NetState.connected;
         _infNotify();
 
         // запрос hello
         if (!recieverAdd(0x02, () {
                 recieverDel(0x02);
                 _pro.rcvNext();
-                _inf.value.state = NetState.waitauth;
+                _state = NetState.waitauth;
                 _infNotify();
                 developer.log('rcv hello');
             }))
@@ -149,7 +146,7 @@ class NetProc {
 
     bool send(int cmd, [String? pk, List<dynamic>? vars]) {
         if (_sock == null) {
-            _inf.value.error = NetError.disconnected;
+            _err = NetError.disconnected;
             _infNotify();
             return false;
         }
@@ -162,6 +159,7 @@ class NetProc {
     }
 
     final Map<int, void Function()> _reciever = {};
+    bool get isLoading => _reciever.isNotEmpty;
 
     bool recieverAdd(int cmd, void Function() hnd) {
         if (_reciever[cmd] != null) {
@@ -202,11 +200,12 @@ class NetProc {
                     return;
                 }
                 developer.log('auth ok');
-                _inf.value.state = NetState.online;
+                _state = NetState.online;
                 _infNotify();
                 if (onReplyOk != null) onReplyOk();
             });
         if (!ok) return false;
+        _infNotify();
 
         return send(0x03, 'n', [code]);
     }
@@ -217,7 +216,7 @@ class NetProc {
     List<LogBook> get logbook => _logbook;
 
     bool requestLogBook({ int beg = 50, int count = 50, Function() ?onReply }) {
-        if (_inf.value.rcvElem.contains(NetRecvElem.logbook)) {
+        if (_rcvelm.contains(NetRecvElem.logbook)) {
             return false;
         }
         bool ok = recieverAdd(0x31, () {
@@ -228,11 +227,11 @@ class NetProc {
                 }
 
                 developer.log('logbook beg ${v[0]}, ${v[1]}');
-                _inf.value.rcvElem.add(NetRecvElem.logbook);
-                _inf.value.dataMax = v[0] < v[1] ? v[0] : v[1];
+                _rcvelm.add(NetRecvElem.logbook);
+                _datamax = v[0] < v[1] ? v[0] : v[1];
                 _logbook.clear();
                 _logbooksz.value = 0;
-                _inf.value.dataCount = 0;
+                _datacnt = 0;
                 _infNotify();
 
                 recieverAdd(0x32, () {
@@ -242,21 +241,22 @@ class NetProc {
                     }
                     _logbook.add(LogBook.byvars(v));
                     _logbooksz.value = _logbook.length;
-                    _inf.value.dataCount = _logbook.length;
+                    _datacnt = _logbook.length;
                     _infNotify();
                 });
                 recieverAdd(0x33, () {
                     recieverDel(0x32);
                     recieverDel(0x33);
-                    developer.log('logbook end ${_inf.value.dataCount} / ${_inf.value.dataMax}');
+                    developer.log('logbook end $_datacnt / $_datamax');
                     _pro.rcvNext();
-                    _inf.value.rcvElem.remove(NetRecvElem.logbook);
-                    _inf.value.dataMax = 0;
-                    _inf.value.dataCount = 0;
+                    _rcvelm.remove(NetRecvElem.logbook);
+                    _datamax = 0;
+                    _datacnt = 0;
                     _infNotify();
                 });
             });
         if (!ok) return false;
+        _infNotify();
 
         return send(0x31, 'NN', [beg, count]);
     }

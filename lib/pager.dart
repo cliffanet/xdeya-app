@@ -51,11 +51,7 @@ class Pager extends StatelessWidget {
     }
 
     static Function()? get refresh {
-        if (_stack.isEmpty) {
-            return null;
-        }
-
-        if (net.state != NetState.online) {
+        if (_stack.isEmpty || net.isLoading) {
             return null;
         }
 
