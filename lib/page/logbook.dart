@@ -4,6 +4,7 @@ import 'package:masked_text/masked_text.dart';
 import 'dart:developer' as developer;
 
 import '../net/proc.dart';
+import '../pager.dart';
 
 Widget _pageAuth() {
     return Container(
@@ -104,8 +105,7 @@ class PageLogBook extends StatelessWidget {
                                     child: ListTile(
                                         onTap: () {
                                             developer.log('tap on: $index');
-                                            //net.start(w.ip, w.port);
-                                            //Pager.push(context, PageCode.logbook);
+                                            Pager.push(context, PageCode.jumpinfo, index);
                                         },
                                         trailing: const SizedBox.shrink(),
                                         title: Text(lb.num.toString()),

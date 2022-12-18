@@ -57,7 +57,29 @@ class LogBook {
             toff: fldUnpack(fldLogItem, vars, 3),
             beg:  fldUnpack(fldLogItem, vars, 3 + fldLogItem.length),
             cnp:  fldUnpack(fldLogItem, vars, 3 + fldLogItem.length * 2),
-            end:  fldUnpack(fldLogItem, vars, 3 + fldLogItem.length * 2)
+            end:  fldUnpack(fldLogItem, vars, 3 + fldLogItem.length * 3)
         );
+    
+    static String _sec2time(int sec) {
+        int min = sec ~/ 60;
+        sec -= min*60;
+        int hour = min ~/ 60;
+        min -= hour*60;
+
+        return '$hour:${min.toString().padLeft(2,'0')}:${sec.toString().padLeft(2,'0')}';
+    }
+    static String _dt2format(DateTime dt) {
+        return
+            '${dt.day}.${dt.month.toString().padLeft(2,'0')}.${dt.year} '
+            '${dt.hour.toString().padLeft(2, ' ')}:${dt.minute.toString().padLeft(2,'0')}';
+    }
+    
+    String get date => '${tm.day}.${tm.month.toString().padLeft(2,'0')}.${tm.year}';
+    String get timeTakeoff => _sec2time( (toff['tmoffset'] ?? 0) ~/ 1000 );
+    String get dtBeg => _dt2format(tm);
+    int    get altBeg => beg['alt'] ?? 0;
+    String get timeFF => _sec2time(((cnp['tmoffset']??0) - (beg['tmoffset']??0)) ~/ 1000);
+    int    get altCnp => cnp['alt'] ?? 0;
+    String get timeCnp => _sec2time(((end['tmoffset']??0) - (cnp['tmoffset']??0)) ~/ 1000);
 }
 

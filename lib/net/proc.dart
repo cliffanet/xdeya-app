@@ -92,6 +92,7 @@ class NetProc {
                 _reciever.clear();
                 _err ??= NetError.disconnected;
                 _infNotify();
+                developer.log('net disconnected');
             }
         );
         developer.log('net connected');

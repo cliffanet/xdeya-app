@@ -132,14 +132,20 @@ Widget getTitleBarClient(PageCode page) {
                 }
                 */
             return AppBar(
-                title: Row(children: row),
-                actions: <Widget>[
+                leading: Navigator.canPop(context) ?
                     IconButton(
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Обновить',
-                        onPressed: Pager.refresh
-                    ),
-                ],
+                        icon: const Icon(Icons.navigate_before),
+                        onPressed: () => Pager.pop(context),
+                    ) : null,
+                title: Row(children: row),
+                actions:  Pager.refreshVisible ?
+                    <Widget>[
+                        IconButton(
+                            icon: const Icon(Icons.refresh),
+                            tooltip: 'Обновить',
+                            onPressed: Pager.refreshPressed
+                        ),
+                    ] : [],
             );
         }
     );
