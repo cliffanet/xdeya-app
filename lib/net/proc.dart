@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:developer' as developer;
@@ -90,6 +92,7 @@ class NetProc {
                 _sock = null;
                 _pro.rcvClear();
                 _reciever.clear();
+                _rcvelm.clear();
                 _err ??= NetError.disconnected;
                 _infNotify();
                 developer.log('net disconnected');
@@ -275,9 +278,9 @@ class NetProc {
 
     final ValueNotifier<int> _trklistsz = ValueNotifier(0);
     ValueNotifier<int> get notifyTrkList => _trklistsz;
-    final List<TrkInfo> _trklist = [];
-    List<TrkInfo> get trklist => _trklist;
-    List<TrkInfo> trkListByJmp(LogBook jmp) {
+    final List<TrkItem> _trklist = [];
+    List<TrkItem> get trklist => _trklist;
+    List<TrkItem> trkListByJmp(LogBook jmp) {
         return _trklist.where((trk) => trk.jmpnum == jmp.num).toList();
     }
 
@@ -299,7 +302,7 @@ class NetProc {
                     if ((v == null) || v.isEmpty) {
                         return;
                     }
-                    _trklist.add(TrkInfo.byvars(v));
+                    _trklist.add(TrkItem.byvars(v));
                     _trklistsz.value = _trklist.length;
                     _infNotify();
                 });
@@ -319,6 +322,73 @@ class NetProc {
             return false;
         }
         _rcvelm.add(NetRecvElem.tracklist);
+        _infNotify();
+
+        return true;
+    }
+
+    TrkInfo _trkinfo = TrkInfo.byvars([]);
+    TrkInfo get trkinfo => _trkinfo;
+    final ValueNotifier<int> _trkdatasz = ValueNotifier(0);
+    ValueNotifier<int> get notifyTrkData => _trkdatasz;
+    final List<Struct> _trkdata = [];
+    List<Struct> get trkdata => _trkdata;
+    Struct ?_trkcenter;
+    Struct ? get trkCenter => _trkcenter;
+
+    bool requestTrkData(TrkItem trk, { Function() ?onLoad, Function(Struct) ?onCenter }) {
+        if (_rcvelm.contains(NetRecvElem.trackdata)) {
+            return false;
+        }
+        bool ok = recieverAdd(0x54, () {
+                recieverDel(0x54);
+                List<dynamic> ?v = _pro.rcvData('NNNNTNH');
+                if ((v == null) || v.isEmpty) {
+                    return;
+                }
+                _trkinfo = TrkInfo.byvars(v);
+
+                developer.log('trkdata beg ${_trkinfo.jmpnum}, ${_trkinfo.dtBeg}');
+                _datamax = (_trkinfo.fsize-32) ~/ 64;
+                _trkdata.clear();
+                _trkdatasz.value = 0;
+                _trkcenter = null;
+                _datacnt = 0;
+                _infNotify();
+
+                recieverAdd(0x55, () {
+                    List<dynamic> ?v = _pro.rcvData(pkLogItem);
+                    if ((v == null) || v.isEmpty) {
+                        return;
+                    }
+                    Struct ti = fldUnpack(fldLogItem, v);
+                    _trkdata.add(ti);
+                    _trkdatasz.value = _trkdata.length;
+                    _datacnt = _trkdata.length;
+                    if ((_trkcenter == null) && (((ti['flags'] ?? 0) & 0x0001) > 0)) {
+                        _trkcenter = ti;
+                        if (onCenter != null) onCenter(ti);
+                    }
+                    _infNotify();
+                });
+                recieverAdd(0x56, () {
+                    recieverDel(0x55);
+                    recieverDel(0x56);
+                    developer.log('trkdata end $_datacnt / $_datamax');
+                    _pro.rcvNext();
+                    _rcvelm.remove(NetRecvElem.trackdata);
+                    _datamax = 0;
+                    _datacnt = 0;
+                    _infNotify();
+                    if (onLoad != null) onLoad();
+                });
+            });
+        if (!ok) return false;
+        if (!send(0x54, 'NNNTC', [trk.id, trk.jmpnum, trk.jmpkey, trk.tmbeg, trk.fnum])) {
+            recieverDel(0x54);
+            return false;
+        }
+        _rcvelm.add(NetRecvElem.trackdata);
         _infNotify();
 
         return true;

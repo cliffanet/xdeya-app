@@ -7,7 +7,7 @@ import '../net/proc.dart';
 class _LWitem {
     final String name;
     final String val;
-    final TrkInfo ?trk;
+    final TrkItem ?trk;
     _LWitem({ required this.name, required this.val, this.trk });
 }
 
@@ -59,8 +59,8 @@ class PageJumpInfo extends StatelessWidget {
                 ];
                 final ibeg = lw.length;
 
-                List<TrkInfo> trklist = net.trkListByJmp(jmp);
-                for (TrkInfo trk in trklist) {
+                List<TrkItem> trklist = net.trkListByJmp(jmp);
+                for (TrkItem trk in trklist) {
                     lw.add(_LWitem(name: '', val: '', trk: trk));
                 }
                 
@@ -143,6 +143,10 @@ class PageJumpInfo extends StatelessWidget {
                                 ListTile(
                                     onTap: () {
                                         developer.log('tap on: $index');
+                                        if (li.trk == null) {
+                                            return;
+                                        }
+                                        net.requestTrkData(li.trk ?? TrkItem.byvars([]));
                                         //Pager.push(context, PageCode.jumpinfo);
                                     },
                                     trailing: const SizedBox.shrink(),

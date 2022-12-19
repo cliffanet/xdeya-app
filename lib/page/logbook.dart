@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:masked_text/masked_text.dart';
 import 'dart:developer' as developer;
 
@@ -40,22 +39,6 @@ Widget _pageAuth() {
             )
         )
     );
-}
-
-Widget _pageLogBook(BuildContext context) {
-        switch (Theme.of(context).platform) {
-            case TargetPlatform.android:
-            case TargetPlatform.iOS:
-                return const WebView(
-                    javascriptMode: JavascriptMode.unrestricted,
-                    initialUrl: "https://maps.yandex.ru"
-                );
-            default:
-        }
-
-        return const Center(
-            child: Text('Logbook')
-        );
 }
 
 class PageLogBook extends StatelessWidget {

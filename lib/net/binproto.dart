@@ -226,6 +226,7 @@ class BinProto {
 
                 case 'T':
                 case 't':
+                    final int ms = pk[pi] == 't' ? bdata.getUint8(di+7) : 0;
                     vars.add(
                         DateTime(
                             bdata.getUint16(di, Endian.big),
@@ -234,7 +235,7 @@ class BinProto {
                             bdata.getUint8(di+4),
                             bdata.getUint8(di+5),
                             bdata.getUint8(di+6),
-                            bdata.getUint8(di+7) * 100
+                            (ms >= 0) && (ms < 100) ? ms * 10 : 0
                         )
                     );
                     di += 8;
@@ -404,7 +405,7 @@ class BinProto {
                         d.setUint8(4, v.hour);
                         d.setUint8(5, v.minute);
                         d.setUint8(6, v.second);
-                        d.setUint8(7, (v.millisecond/100).ceil());
+                        d.setUint8(7, pk[pi] == 't' ? (v.millisecond % 1000) ~/ 10 : 0);
                     }
                     else {
                         d.setUint64(0, 0, Endian.big);
