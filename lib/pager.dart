@@ -4,10 +4,11 @@ import 'titlebar.dart';
 import 'page/discovery.dart';
 import 'page/logbook.dart';
 import 'page/jumpinfo.dart';
+import 'page/tracklist.dart';
 import 'page/trackview.dart';
 import '../net/proc.dart';
 
-enum PageCode { discovery, logbook, jumpinfo, trackview }
+enum PageCode { discovery, logbook, jumpinfo, tracklist, trackview }
 
 typedef PageFunc = Widget ? Function([int ?index]);
 
@@ -15,7 +16,8 @@ final Map<PageCode, PageFunc> _pageMap = {
     PageCode.discovery: ([int ?i]) { return const PageDiscovery(); },
     PageCode.logbook:   ([int ?i]) { return PageLogBook(); },
     PageCode.jumpinfo:  ([int ?index]) { return index != null ? PageJumpInfo(index: index) : null; },
-    PageCode.trackview: ([int ?i]) { return PageTrackView(); },
+    PageCode.tracklist: ([int ?i]) { return PageTrackList(); },
+    PageCode.trackview: ([int ?i]) { return const PageTrackView(); },
 };
 
 class Pager extends StatelessWidget {
@@ -41,6 +43,7 @@ class Pager extends StatelessWidget {
     }
 
     static final List<PageCode> _stack = [];
+    static PageCode? get top => _stack.isNotEmpty ? _stack[ _stack.length-1 ] : null;
     static push(BuildContext context, PageCode page, [int ?index]) {
         PageFunc ?w = _pageMap[page];
         if (w == null) {

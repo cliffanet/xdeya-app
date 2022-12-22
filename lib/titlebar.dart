@@ -34,7 +34,17 @@ Widget getTitleBarClient(PageCode page) {
     return ValueListenableBuilder(
         valueListenable: net.notifyInf,
         builder: (BuildContext context, inf, Widget? child) {
-            List<Widget> row = [];
+            List<Widget> row = [
+            ];
+
+            if ((Pager.top != PageCode.tracklist) && (Pager.top != PageCode.trackview)) {
+                row.add(
+                    IconButton(
+                        icon: const Icon(Icons.polyline),
+                        onPressed: () => Pager.push(context, PageCode.tracklist),
+                    )
+                );
+            }
 
             if (net.isProgress) {
                 row.add(
