@@ -419,7 +419,9 @@ class BinProto {
                     int len = v[0];
                     final String s = v is String ? v.toString() : '';
                     List<int> d = s.substring(0, len).codeUnits;
-                    while (d.length < len) d.add(0);
+                    while (d.length < len) {
+                        d.add(0);
+                    }
                     data.addAll( d );
                     break;
             }

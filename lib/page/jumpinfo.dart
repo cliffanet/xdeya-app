@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import '../net/types.dart';
 import '../net/proc.dart';
+import '../pager.dart';
 
 
 class _LWitem {
@@ -147,7 +148,7 @@ class PageJumpInfo extends StatelessWidget {
                                             return;
                                         }
                                         net.requestTrkData(li.trk ?? TrkItem.byvars([]));
-                                        //Pager.push(context, PageCode.jumpinfo);
+                                        Pager.push(context, PageCode.trackview);
                                     },
                                     trailing: const SizedBox.shrink(),
                                     title: Text('трэк: ${li.trk?.dtBeg}'),

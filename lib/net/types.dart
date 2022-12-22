@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'binproto.dart';
 
 const String pkLogItem = 'NnaaiiNNNiiNNC nNNNNNN';

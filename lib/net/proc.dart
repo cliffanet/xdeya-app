@@ -333,8 +333,9 @@ class NetProc {
     ValueNotifier<int> get notifyTrkData => _trkdatasz;
     final List<Struct> _trkdata = [];
     List<Struct> get trkdata => _trkdata;
-    Struct ?_trkcenter;
-    Struct ? get trkCenter => _trkcenter;
+    final ValueNotifier<Struct ?> _trkcenter = ValueNotifier(null);
+    Struct ? get trkCenter => _trkcenter.value;
+    ValueNotifier<Struct ?> get notifyTrkCenter => _trkcenter;
 
     bool requestTrkData(TrkItem trk, { Function() ?onLoad, Function(Struct) ?onCenter }) {
         if (_rcvelm.contains(NetRecvElem.trackdata)) {
@@ -352,7 +353,7 @@ class NetProc {
                 _datamax = (_trkinfo.fsize-32) ~/ 64;
                 _trkdata.clear();
                 _trkdatasz.value = 0;
-                _trkcenter = null;
+                _trkcenter.value = null;
                 _datacnt = 0;
                 _infNotify();
 
@@ -365,8 +366,8 @@ class NetProc {
                     _trkdata.add(ti);
                     _trkdatasz.value = _trkdata.length;
                     _datacnt = _trkdata.length;
-                    if ((_trkcenter == null) && (((ti['flags'] ?? 0) & 0x0001) > 0)) {
-                        _trkcenter = ti;
+                    if ((_trkcenter.value == null) && (((ti['flags'] ?? 0) & 0x0001) > 0)) {
+                        _trkcenter.value = ti;
                         if (onCenter != null) onCenter(ti);
                     }
                     _infNotify();
@@ -392,5 +393,89 @@ class NetProc {
         _infNotify();
 
         return true;
+    }
+
+    String get trkGeoJson {
+        String features = '';
+        int i=0;
+        int segid = 0;
+        while (i < _trkdata.length) {
+            while ( // пропустим все точки без спутников
+                    (i < _trkdata.length) &&
+                    (((_trkdata[i]['flags'] ?? 0) & 0x0001) == 0)
+                ) {
+                i++;
+            }
+            if (i >= _trkdata.length) {
+                break;
+            }
+
+            Struct p = _trkdata[i];
+            String pstate = p['state'];
+
+            double lat = p['lat'] / 10000000;
+            double lon = p['lon'] / 10000000;
+            String crd = '[$lat,$lon]';
+
+            int n = 1;
+            i++;
+            while (
+                    (i < _trkdata.length) &&
+                    (n < 5) &&
+                    (_trkdata[i]['state'] == pstate) &&
+                    (((_trkdata[i]['flags'] ?? 0) & 0x0001) > 0)
+                ) {
+                double lat = _trkdata[i]['lat'] / 10000000;
+                double lon = _trkdata[i]['lon'] / 10000000;
+                crd = '$crd,[$lat,$lon]';
+                i++;
+                n++;
+            }
+
+            if (n < 2) continue;
+
+            segid ++;
+            final String color =
+                (pstate == 's') || (pstate == 't') ? // takeoff
+                    "#2e2f30" :
+                pstate == 'f' ? // freefall
+                    "#7318bf" :
+                (pstate == 'c') || (pstate == 'l') ? // canopy
+                    "#0052ef" :
+                    "#fcb615";
+            
+
+            int sec = (p['tmoffset'] ?? 0) ~/ 1000;
+            int min = sec ~/ 60;
+            sec -= min*60;
+            final String time = '$min:${sec.toString().padLeft(2,'0')}';
+
+            final String vert = '${p['alt']} m (${ (p['altspeed']/100).toStringAsFixed(1) } m/s)';
+            final String horz = '${p['heading']}&deg; (${ (p['hspeed']/100).toStringAsFixed(1) } m/s)';
+
+            final String kach =
+                p['altspeed'] < -10 ?
+                    ' [кач: ${ (-1.0 * p['hspeed'] / p['altspeed']).toStringAsFixed(1) }]' :
+                    '';
+            
+            features = 
+                '$features'
+                '{'
+                    '"type": "Feature",'
+                    '"id": $segid,'
+                    '"options": {"strokeWidth": 4, "strokeColor": "$color"},'
+                    '"geometry": {'
+                        '"type": "LineString",'
+                        '"coordinates": [$crd]'
+                    '},'
+                    '"properties": {'
+                        '"balloonContentHeader": "$time",'
+                        '"balloonContentBody": "Вертикаль: $vert<br />Горизонт: $horz$kach",'
+                        '"hintContent": "$time<br/>Вер: $vert<br/>Гор: $horz$kach",'
+                    '}'
+                '},';
+        }
+
+        return '{ "type": "FeatureCollection", "features": [ $features ] }';
     }
 }
