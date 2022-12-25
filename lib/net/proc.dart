@@ -52,7 +52,7 @@ class NetProc {
 
     final ValueNotifier<int> _notify = ValueNotifier(0);
     ValueNotifier<int> get notifyInf => _notify;
-    void _infNotify() => _notify.value++;
+    void doNotifyInf() => _notify.value++;
 
     void stop() {
         _sock?.close();
@@ -60,7 +60,7 @@ class NetProc {
 
     void _errstop(NetError ?err) {
         _err = err;
-        _infNotify();
+        doNotifyInf();
         stop();
     }
 
@@ -71,7 +71,7 @@ class NetProc {
         developer.log('net connecting to: $ip:$port');
         _state = NetState.connecting;
         _err = null;
-        _infNotify();
+        doNotifyInf();
 
         try {
             _sock = await Socket.connect(ip, port);
@@ -80,7 +80,7 @@ class NetProc {
             _sock = null;
             _state = NetState.offline;
             _err = NetError.connect;
-            _infNotify();
+            doNotifyInf();
             return false;
         }
 
@@ -94,21 +94,21 @@ class NetProc {
                 _reciever.clear();
                 _rcvelm.clear();
                 _err ??= NetError.disconnected;
-                _infNotify();
+                doNotifyInf();
                 developer.log('net disconnected');
             }
         );
         developer.log('net connected');
 
         _state = NetState.connected;
-        _infNotify();
+        doNotifyInf();
 
         // запрос hello
         if (!recieverAdd(0x02, () {
                 recieverDel(0x02);
                 _pro.rcvNext();
                 _state = NetState.waitauth;
-                _infNotify();
+                doNotifyInf();
                 developer.log('rcv hello');
             }))
         {
@@ -151,7 +151,7 @@ class NetProc {
     bool send(int cmd, [String? pk, List<dynamic>? vars]) {
         if (_sock == null) {
             _err = NetError.disconnected;
-            _infNotify();
+            doNotifyInf();
             return false;
         }
         
@@ -205,11 +205,11 @@ class NetProc {
                 }
                 developer.log('auth ok');
                 _state = NetState.online;
-                _infNotify();
+                doNotifyInf();
                 if (onReplyOk != null) onReplyOk();
             });
         if (!ok) return false;
-        _infNotify();
+        doNotifyInf();
 
         return send(0x03, 'n', [code]);
     }
@@ -235,7 +235,7 @@ class NetProc {
                 _logbook.clear();
                 _logbooksz.value = 0;
                 _datacnt = 0;
-                _infNotify();
+                doNotifyInf();
 
                 recieverAdd(0x32, () {
                     List<dynamic> ?v = _pro.rcvData(LogBook.pk);
@@ -245,7 +245,7 @@ class NetProc {
                     _logbook.add(LogBook.byvars(v));
                     _logbooksz.value = _logbook.length;
                     _datacnt = _logbook.length;
-                    _infNotify();
+                    doNotifyInf();
                 });
                 recieverAdd(0x33, () {
                     recieverDel(0x32);
@@ -255,7 +255,7 @@ class NetProc {
                     _rcvelm.remove(NetRecvElem.logbook);
                     _datamax = 0;
                     _datacnt = 0;
-                    _infNotify();
+                    doNotifyInf();
                     if (onLoad != null) onLoad();
                 });
             });
@@ -265,7 +265,7 @@ class NetProc {
             return false;
         }
         _rcvelm.add(NetRecvElem.logbook);
-        _infNotify();
+        doNotifyInf();
 
         return true;
     }
@@ -295,7 +295,7 @@ class NetProc {
                 developer.log('trklist beg');
                 _trklist.clear();
                 _trklistsz.value = 0;
-                _infNotify();
+                doNotifyInf();
 
                 recieverAdd(0x52, () {
                     List<dynamic> ?v = _pro.rcvData('NNNNTNC');
@@ -304,7 +304,7 @@ class NetProc {
                     }
                     _trklist.add(TrkItem.byvars(v));
                     _trklistsz.value = _trklist.length;
-                    _infNotify();
+                    doNotifyInf();
                 });
                 recieverAdd(0x53, () {
                     recieverDel(0x52);
@@ -312,7 +312,7 @@ class NetProc {
                     developer.log('trklist end');
                     _pro.rcvNext();
                     _rcvelm.remove(NetRecvElem.tracklist);
-                    _infNotify();
+                    doNotifyInf();
                     if (onLoad != null) onLoad();
                 });
             });
@@ -322,25 +322,38 @@ class NetProc {
             return false;
         }
         _rcvelm.add(NetRecvElem.tracklist);
-        _infNotify();
+        doNotifyInf();
 
         return true;
     }
 
+    // trkinfo
     TrkInfo _trkinfo = TrkInfo.byvars([]);
     TrkInfo get trkinfo => _trkinfo;
+    // trkdata
     final ValueNotifier<int> _trkdatasz = ValueNotifier(0);
     ValueNotifier<int> get notifyTrkData => _trkdatasz;
     final List<Struct> _trkdata = [];
     List<Struct> get trkdata => _trkdata;
+    // trkCenter
     final ValueNotifier<Struct ?> _trkcenter = ValueNotifier(null);
     Struct ? get trkCenter => _trkcenter.value;
     ValueNotifier<Struct ?> get notifyTrkCenter => _trkcenter;
 
+    bool Function() ?_reloadTrkData;
+    bool reloadTrkData() {
+        return
+            _reloadTrkData != null ?
+                _reloadTrkData!() :
+                false;
+    }
     bool requestTrkData(TrkItem trk, { Function() ?onLoad, Function(Struct) ?onCenter }) {
         if (_rcvelm.contains(NetRecvElem.trackdata)) {
+            _reloadTrkData = null;
             return false;
         }
+        _reloadTrkData = () => requestTrkData(trk, onLoad:onLoad, onCenter:onCenter);
+
         bool ok = recieverAdd(0x54, () {
                 recieverDel(0x54);
                 List<dynamic> ?v = _pro.rcvData('NNNNTNH');
@@ -355,7 +368,7 @@ class NetProc {
                 _trkdatasz.value = 0;
                 _trkcenter.value = null;
                 _datacnt = 0;
-                _infNotify();
+                doNotifyInf();
 
                 recieverAdd(0x55, () {
                     List<dynamic> ?v = _pro.rcvData(pkLogItem);
@@ -370,7 +383,7 @@ class NetProc {
                         _trkcenter.value = ti;
                         if (onCenter != null) onCenter(ti);
                     }
-                    _infNotify();
+                    doNotifyInf();
                 });
                 recieverAdd(0x56, () {
                     recieverDel(0x55);
@@ -380,7 +393,7 @@ class NetProc {
                     _rcvelm.remove(NetRecvElem.trackdata);
                     _datamax = 0;
                     _datacnt = 0;
-                    _infNotify();
+                    doNotifyInf();
                     if (onLoad != null) onLoad();
                 });
             });
@@ -390,7 +403,7 @@ class NetProc {
             return false;
         }
         _rcvelm.add(NetRecvElem.trackdata);
-        _infNotify();
+        doNotifyInf();
 
         return true;
     }
@@ -477,5 +490,61 @@ class NetProc {
         }
 
         return '{ "type": "FeatureCollection", "features": [ $features ] }';
+    }
+
+    final ValueNotifier<int> _wifipasssz = ValueNotifier(0);
+    ValueNotifier<int> get notifyWiFiList => _wifipasssz;
+    final List<WiFiPass> _wifipass = [];
+    List<WiFiPass> get wifipass => _wifipass;
+
+    bool requestWiFiPass({ Function() ?onLoad }) {
+        if (_rcvelm.contains(NetRecvElem.wifipass)) {
+            return false;
+        }
+        bool ok = recieverAdd(0x37, () {
+                recieverDel(0x37);
+                List<dynamic> ?v = _pro.rcvData('N');
+                if ((v == null) || v.isEmpty) {
+                    return;
+                }
+
+                developer.log('wifipass beg ${v[0]}');
+                _datamax = v[0];
+                _wifipass.clear();
+                _wifipasssz.value = 0;
+                _datacnt = 0;
+                doNotifyInf();
+
+                recieverAdd(0x38, () {
+                    List<dynamic> ?v = _pro.rcvData('ssN');
+                    if ((v == null) || v.isEmpty) {
+                        return;
+                    }
+                    _wifipass.add(WiFiPass.byvars(v));
+                    _wifipasssz.value = (v.length > 2) && (v[2]) is int ? v[2] : 0;
+                    _datacnt = _wifipasssz.value;
+                    doNotifyInf();
+                });
+                recieverAdd(0x39, () {
+                    recieverDel(0x38);
+                    recieverDel(0x39);
+                    developer.log('wifipass end $_datacnt / $_datamax');
+                    _pro.rcvNext();
+                    _rcvelm.remove(NetRecvElem.wifipass);
+                    _datamax = 0;
+                    _datacnt = 0;
+                    doNotifyInf();
+                    if (onLoad != null) onLoad();
+                });
+            });
+        if (!ok) return false;
+        if (!send(0x37)) {
+            recieverDel(0x37);
+            return false;
+        }
+        _rcvelm.add(NetRecvElem.wifipass);
+        doNotifyInf();
+
+        return true;
     }
 }

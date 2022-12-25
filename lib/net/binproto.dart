@@ -260,6 +260,16 @@ class BinProto {
                     );
                     di += v[0];
                     break;
+                
+                case 's':
+                    int len = bdata.getUint8(di);
+                    final int len1 = data.length - di - 1;
+                    if (len > len1) len = len1;
+                    vars.add(
+                        String.fromCharCodes(data, di+1, di+1+len)
+                    );
+                    di += len + 1;
+                    break;
             }
 
             pi++;
@@ -422,6 +432,18 @@ class BinProto {
                     while (d.length < len) {
                         d.add(0);
                     }
+                    data.addAll( d );
+                    break;
+                
+                case 's':
+                    String s = v is String ? v.toString() : '';
+                    int len = s.length;
+                    if (len > 255) len = 255;
+                    List<int> d = s.substring(0, len).codeUnits;
+                    while (d.length < len) {
+                        d.add(0);
+                    }
+                    data.add(len);
                     data.addAll( d );
                     break;
             }

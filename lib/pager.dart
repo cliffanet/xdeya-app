@@ -6,9 +6,11 @@ import 'page/logbook.dart';
 import 'page/jumpinfo.dart';
 import 'page/tracklist.dart';
 import 'page/trackview.dart';
+import 'page/wifipass.dart';
+import 'page/wifiedit.dart';
 import '../net/proc.dart';
 
-enum PageCode { discovery, logbook, jumpinfo, tracklist, trackview }
+enum PageCode { discovery, logbook, jumpinfo, tracklist, trackview, wifipass, wifiedit }
 
 typedef PageFunc = Widget ? Function([int ?index]);
 
@@ -18,6 +20,8 @@ final Map<PageCode, PageFunc> _pageMap = {
     PageCode.jumpinfo:  ([int ?index]) { return index != null ? PageJumpInfo(index: index) : null; },
     PageCode.tracklist: ([int ?i]) { return PageTrackList(); },
     PageCode.trackview: ([int ?i]) { return const PageTrackView(); },
+    PageCode.wifipass:  ([int ?i]) { return PageWiFiPass(); },
+    PageCode.wifiedit:  ([int ?index]) { return index != null ? PageWiFiEdit(index: index) : null; },
 };
 
 class Pager extends StatelessWidget {
@@ -55,6 +59,7 @@ class Pager extends StatelessWidget {
             MaterialPageRoute(builder: (context) => Pager(page: page, index: index)),
         );
         _stack.add(page);
+        net.doNotifyInf();
     }
     static pop(BuildContext context) {
         Navigator.pop(context);
@@ -62,6 +67,7 @@ class Pager extends StatelessWidget {
         if (_stack.isEmpty) {
             net.stop();
         }
+        net.doNotifyInf();
     }
 
     static Function()? get refreshPressed {
@@ -72,6 +78,15 @@ class Pager extends StatelessWidget {
         switch (_stack.last) {
             case PageCode.logbook:
                 return () { net.requestLogBookDefault(); };
+            
+            case PageCode.tracklist:
+                return () { net.requestTrkList(); };
+            
+            case PageCode.trackview:
+                return () { net.reloadTrkData(); };
+            
+            case PageCode.wifipass:
+                return () { net.requestWiFiPass(); };
 
             default:
         }
@@ -86,6 +101,9 @@ class Pager extends StatelessWidget {
 
         switch (_stack.last) {
             case PageCode.logbook:
+            case PageCode.tracklist:
+            case PageCode.trackview:
+            case PageCode.wifipass:
                 return true;
 
             default:

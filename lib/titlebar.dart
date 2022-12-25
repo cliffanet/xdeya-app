@@ -34,16 +34,28 @@ Widget getTitleBarClient(PageCode page) {
     return ValueListenableBuilder(
         valueListenable: net.notifyInf,
         builder: (BuildContext context, inf, Widget? child) {
-            List<Widget> row = [
-            ];
+            List<Widget> row = [];
 
-            if ((Pager.top != PageCode.tracklist) && (Pager.top != PageCode.trackview)) {
-                row.add(
-                    IconButton(
-                        icon: const Icon(Icons.polyline),
-                        onPressed: () => Pager.push(context, PageCode.tracklist),
-                    )
-                );
+            if (net.state == NetState.online) {
+                if ((Pager.top != PageCode.wifipass) && (Pager.top != PageCode.wifiedit)) {
+                    row.add(
+                        IconButton(
+                            icon: const Icon(Icons.wifi),
+                            onPressed: () {
+                                net.requestWiFiPass();
+                                Pager.push(context, PageCode.wifipass);
+                            }
+                        )
+                    );
+                }
+                if ((Pager.top != PageCode.tracklist) && (Pager.top != PageCode.trackview)) {
+                    row.add(
+                        IconButton(
+                            icon: const Icon(Icons.polyline),
+                            onPressed: () => Pager.push(context, PageCode.tracklist),
+                        )
+                    );
+                }
             }
 
             if (net.isProgress) {
@@ -130,17 +142,6 @@ Widget getTitleBarClient(PageCode page) {
                 }
             }
             
-            /*
-                if (false) {
-                    row.insert(0,
-                        const IconButton(
-                            icon: Icon(Icons.wifi),
-                            tooltip: 'Navigation menu',
-                            onPressed: null,
-                        ),
-                    );
-                }
-                */
             return AppBar(
                 leading: Navigator.canPop(context) ?
                     IconButton(

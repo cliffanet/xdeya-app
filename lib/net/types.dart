@@ -151,3 +151,18 @@ class TrkInfo {
     String get dtBeg => _dt2format(tmbeg);
 }
 
+class WiFiPass {
+    final String ssid;
+    final String pass;
+
+    WiFiPass({
+        required this.ssid,
+        required this.pass,
+    });
+
+    WiFiPass.byvars(List<dynamic> vars) :
+        this(
+            ssid:   (vars.isNotEmpty) && (vars[0]) is String ? vars[0] : '',
+            pass:   (vars.length > 1) && (vars[1]) is String ? vars[1] : '',
+        );
+}
