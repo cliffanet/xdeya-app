@@ -60,7 +60,10 @@ class PageWiFiPass extends StatelessWidget {
                                                 FloatingActionButton(
                                                     heroTag: 'btnSave',
                                                     child: const Text('Save'),
-                                                    onPressed: () {}
+                                                    onPressed: () {
+                                                        net.saveWiFiPass();
+                                                        Pager.pop(context);
+                                                    }
                                                 ),
                                             ]
                                         )

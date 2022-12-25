@@ -57,12 +57,30 @@ class PageWiFiEdit extends StatelessWidget {
                         ),
                     ),
                     Row(children: [
+                        _ismod ?
+                            FloatingActionButton(
+                                heroTag: 'btnRemove',
+                                child: const Icon(Icons.close),
+                                onPressed: () {
+                                    developer.log('index: $_index');
+                                    net.delWiFiPass(_index);
+                                    Pager.pop(context);
+                                }
+                            ) :
+                            Container(),
                         const Spacer(),
                         FloatingActionButton(
                             child: const Icon(Icons.check),
                             onPressed: () {
                                 developer.log('ssid: $_ssid, pass: $_pass');
                                 if ((_ssid == '') || (_pass == '')) return;
+                                if (_ismod) {
+                                    net.setWiFiPass(_index, _ssid, _pass);
+                                }
+                                else {
+                                    net.addWiFiPass(_ssid, _pass);
+                                }
+                                Pager.pop(context);
                             }
                         ),
                     ])

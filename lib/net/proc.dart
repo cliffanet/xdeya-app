@@ -27,13 +27,20 @@ enum NetRecvElem {
     logbook,
     tracklist,
     trackdata,
-    wifipass
+    wifipass,
+    wifisave
 }
 
 final net = NetProc();
 
 class NetProc {
     Socket ?_sock;
+
+    /*//////////////////////////////////////
+     *
+     *  Общие даннные о состоянии
+     * 
+     *//////////////////////////////////////
 
     NetState _state = NetState.offline;
     NetState get state => _state;
@@ -53,6 +60,8 @@ class NetProc {
     final ValueNotifier<int> _notify = ValueNotifier(0);
     ValueNotifier<int> get notifyInf => _notify;
     void doNotifyInf() => _notify.value++;
+
+    // start / stop
 
     void stop() {
         _sock?.close();
@@ -92,6 +101,7 @@ class NetProc {
                 _sock = null;
                 _pro.rcvClear();
                 _reciever.clear();
+                _confirmer.clear();
                 _rcvelm.clear();
                 _err ??= NetError.disconnected;
                 doNotifyInf();
@@ -123,6 +133,12 @@ class NetProc {
         return true;
     }
 
+    /*//////////////////////////////////////
+     *
+     *  recv / send
+     * 
+     *//////////////////////////////////////
+
     final BinProto _pro = BinProto();
     void recv(data) {
         if (!_pro.rcvProcess(data)) {
@@ -131,14 +147,19 @@ class NetProc {
         }
 
         while (_pro.rcvState == BinProtoRecv.complete) {
-            Function() ?hnd = _reciever[ _pro.rcvCmd ];
-
-            if (hnd != null) {
-                hnd();
+            if (_pro.rcvCmd == 0x10) {
+                _recvConfirm();
             }
             else {
-                developer.log('recv unknown: cmd=0x${_pro.rcvCmd.toRadixString(16)}');
-                _pro.rcvNext();
+                Function() ?hnd = _reciever[ _pro.rcvCmd ];
+
+                if (hnd != null) {
+                    hnd();
+                }
+                else {
+                    developer.log('recv unknown: cmd=0x${_pro.rcvCmd.toRadixString(16)}');
+                    _pro.rcvNext();
+                }
             }
 
             if (!_pro.rcvProcess()) {
@@ -146,6 +167,30 @@ class NetProc {
                 return;
             }
         }
+    }
+
+    bool _recvConfirm() {
+        List<dynamic> ?v = _pro.rcvData('CC');
+        if (
+                (v == null) || (v.length < 2) ||
+                !(v[0] is int) || !(v[1] is int)
+            ) {
+            return false;
+        }
+
+        int cmd = v[0];
+        int err = v[1];
+        Function(int ?err) ?hnd = _confirmer[ cmd ];
+        if (hnd == null) {
+            developer.log('confirm unknown: cmd=0x${cmd.toRadixString(16)}');
+            return false;
+        }
+
+        developer.log('confirm: cmd=0x${cmd.toRadixString(16)}, err=$err');
+        hnd(err == 0 ? null : err);
+        confirmerDel(cmd);
+
+        return true;
     }
 
     bool send(int cmd, [String? pk, List<dynamic>? vars]) {
@@ -162,8 +207,14 @@ class NetProc {
         return true;
     }
 
+    /*//////////////////////////////////////
+     *
+     *  reciever
+     * 
+     *//////////////////////////////////////
+
     final Map<int, void Function()> _reciever = {};
-    bool get isLoading => _reciever.isNotEmpty;
+    bool get isLoading => _reciever.isNotEmpty || _confirmer.isNotEmpty;
 
     bool recieverAdd(int cmd, void Function() hnd) {
         if (_reciever[cmd] != null) {
@@ -189,6 +240,45 @@ class NetProc {
         return _reciever[cmd];
     }
 
+    /*//////////////////////////////////////
+     *
+     *  confirmer
+     * 
+     *//////////////////////////////////////
+
+    final Map<int, void Function(int ?err)> _confirmer = {};
+
+    bool confirmerAdd(int cmd, void Function(int ?err) hnd) {
+        if (_confirmer[cmd] != null) {
+            return false;
+        }
+
+        _confirmer[cmd] = hnd;
+
+        return true;
+    }
+    
+    bool confirmerDel(int cmd) {
+        if (_confirmer[cmd] == null) {
+            return false;
+        }
+
+        _confirmer.remove(cmd);
+
+        return true;
+    }
+
+    void Function(int ?err)? confirmer(int cmd) {
+        return _confirmer[cmd];
+    }
+
+
+    /*//////////////////////////////////////
+     *
+     *  Auth
+     * 
+     *//////////////////////////////////////
+
     bool requestAuth(String codehex, { Function() ?onReplyOk, Function() ?onReplyErr }) {
         int code = int.parse(codehex, radix: 16);
         if (code == 0) {
@@ -213,6 +303,12 @@ class NetProc {
 
         return send(0x03, 'n', [code]);
     }
+
+    /*//////////////////////////////////////
+     *
+     *  LogBook
+     * 
+     *//////////////////////////////////////
 
     final ValueNotifier<int> _logbooksz = ValueNotifier(0);
     ValueNotifier<int> get notifyLogBook => _logbooksz;
@@ -276,6 +372,12 @@ class NetProc {
         );
     }
 
+    /*//////////////////////////////////////
+     *
+     *  TrkList
+     * 
+     *//////////////////////////////////////
+
     final ValueNotifier<int> _trklistsz = ValueNotifier(0);
     ValueNotifier<int> get notifyTrkList => _trklistsz;
     final List<TrkItem> _trklist = [];
@@ -326,6 +428,12 @@ class NetProc {
 
         return true;
     }
+
+    /*//////////////////////////////////////
+     *
+     *  TrkData
+     * 
+     *//////////////////////////////////////
 
     // trkinfo
     TrkInfo _trkinfo = TrkInfo.byvars([]);
@@ -492,6 +600,12 @@ class NetProc {
         return '{ "type": "FeatureCollection", "features": [ $features ] }';
     }
 
+    /*//////////////////////////////////////
+     *
+     *  WiFi Pass
+     * 
+     *//////////////////////////////////////
+
     final ValueNotifier<int> _wifipasssz = ValueNotifier(0);
     ValueNotifier<int> get notifyWiFiList => _wifipasssz;
     final List<WiFiPass> _wifipass = [];
@@ -521,8 +635,8 @@ class NetProc {
                         return;
                     }
                     _wifipass.add(WiFiPass.byvars(v));
-                    _wifipasssz.value = (v.length > 2) && (v[2]) is int ? v[2] : 0;
-                    _datacnt = _wifipasssz.value;
+                    _wifipasssz.value = _wifipass.length;
+                    _datacnt = (v.length > 2) && (v[2]) is int ? v[2] : 0;
                     doNotifyInf();
                 });
                 recieverAdd(0x39, () {
@@ -544,6 +658,70 @@ class NetProc {
         }
         _rcvelm.add(NetRecvElem.wifipass);
         doNotifyInf();
+
+        return true;
+    }
+
+    void addWiFiPass(String ssid, String pass) {
+        _wifipass.add(WiFiPass(ssid: ssid, pass: pass));
+        _wifipasssz.value = _wifipass.length;
+    }
+    void setWiFiPass(int index, String ssid, String pass) {
+        if ((index < 0) || (index >= _wifipass.length)) {
+            return;
+        }
+        _wifipass[index] = WiFiPass(ssid: ssid, pass: pass);
+        _wifipasssz.value = 0;
+        _wifipasssz.value = _wifipass.length;
+    }
+    void delWiFiPass(int index) {
+        if ((index < 0) || (index >= _wifipass.length)) {
+            return;
+        }
+        _wifipass.removeAt(index);
+        _wifipasssz.value = _wifipass.length;
+    }
+
+    bool saveWiFiPass({ Function() ?onDone }) {
+        if (_rcvelm.contains(NetRecvElem.wifisave)) {
+            return false;
+        }
+        // это просто заглушка (команда 0x4a временно отправляется по завершению приёма)
+        if (!recieverAdd(0x4a, () { _pro.rcvNext(); })) {
+            return false;
+        }
+        bool ok = confirmerAdd(0x41, (err) {
+            recieverDel(0x4a);
+            _rcvelm.remove(NetRecvElem.wifisave);
+            doNotifyInf();
+            if ((err == null) && (onDone != null)) onDone();
+        });
+        if (!ok) {
+            recieverDel(0x4a);
+            return false;
+        }
+
+        if (!send(0x41)) {
+            recieverDel(0x4a);
+            confirmerDel(0x41);
+            return false;
+        }
+        _rcvelm.add(NetRecvElem.wifisave);
+        doNotifyInf();
+
+        for (var wifi in _wifipass) {
+            if (!send(0x42, 'ss', [wifi.ssid, wifi.pass])) {
+                recieverDel(0x4a);
+                confirmerDel(0x41);
+                return false;
+            }
+        }
+
+        if (!send(0x43)) {
+            recieverDel(0x4a);
+            confirmerDel(0x41);
+            return false;
+        }
 
         return true;
     }
